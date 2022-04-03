@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PDSRSP_ProjectedTextureStereo", "PDSRSP_ProjectedTextureStereo\PDSRSP_ProjectedTextureStereo.vcxproj", "{A81C608E-A5FC-4E32-B8DC-080003631A87}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Debug|x64.ActiveCfg = Debug|x64
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Debug|x64.Build.0 = Debug|x64
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Debug|x86.ActiveCfg = Debug|Win32
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Debug|x86.Build.0 = Debug|Win32
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Release|x64.ActiveCfg = Release|x64
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Release|x64.Build.0 = Release|x64
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Release|x86.ActiveCfg = Release|Win32
+		{A81C608E-A5FC-4E32-B8DC-080003631A87}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C922E30C-5A26-466D-845F-0F2A933AA189}
+	EndGlobalSection
+EndGlobal
