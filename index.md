@@ -1,12 +1,15 @@
 # Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo
 Project page of the paper "Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo".
 
+
 ![top](top.png)
+
+
 # Paper
 J. Takeda and N. Fukushima, "Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo," Optics Continuum, 2022.
 
 * [pdf]()
-* [Codes](https://github.com/fukushimalab/ProjectedTextureStereo) 
+* [code](https://github.com/norishigefukushima/PDSRSP_ProjectedTextureStereo) 
 
 # Citation
 
