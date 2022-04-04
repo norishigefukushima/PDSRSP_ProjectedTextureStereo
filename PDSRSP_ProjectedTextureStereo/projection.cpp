@@ -1,7 +1,31 @@
 #include "projection.hpp"
 #include <inlineSIMDFunctions.hpp>
-
+#include <opencv2/highgui/highgui.hpp>
 using namespace cv;
+
+void loadPrecomputedPDS(Mat& mask, int distanceIndex, int index)
+{
+	int n = 0;
+	switch (distanceIndex)
+	{
+	case 0:n = 15; break;
+	case 1:n = 20; break;
+	case 2:n = 25; break;
+	case 3:n = 30; break;
+	case 4:n = 35; break;
+	case 5:n = 40; break;
+	case 6:n = 45; break;
+	case 7:n = 50; break;
+	case 8:n = 55; break;
+	case 9:n = 60; break;
+	case 10:n = 65; break;
+	case 11:n = 70; break;
+	default:
+		break;
+	}
+	const int idx = index;
+	mask = imread(format("pds/PDSmask_d%02d_%02d.png", n, idx), 0);
+}
 
 void addRandmizedSatellitePoints(const Mat& mask, Mat& dest, RNG& rng)
 {

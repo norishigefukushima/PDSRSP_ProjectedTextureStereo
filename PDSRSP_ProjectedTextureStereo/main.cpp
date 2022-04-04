@@ -94,7 +94,7 @@ void stereoTest()
 	csv.end();
 
 	//i=21
-	for (int i = 0; i < 27; i++)
+	for (int i = 21; i < 27; i++)
 	{
 		const int amp = 1;
 		string name = fname[i];
@@ -146,9 +146,9 @@ void stereoTest()
 
 int main()
 {
-	stereoTest();
-	//generatePDS(Size(1400, 1120), 2.f, 10);
-	pointcloudTest();
+	stereoTest();//test for stereo matching
+	pointcloudTest();//test for point cloud rendering for Fig. 12
+	//generatePDSMask(Size(1400, 1120), 2.f, 10);// function to prepare PDS masks for stereo test.
 	
 	return 0;
 }

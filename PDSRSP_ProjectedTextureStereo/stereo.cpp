@@ -6,32 +6,6 @@ using namespace std;
 using namespace cv;
 using namespace cp;
 
-float loadPrecomputedPDS(Mat& mask, int distanceIndex, int index)
-{
-	int n = 0;
-	switch (distanceIndex)
-	{
-	case 0:n = 25; break;
-	case 1:n = 30; break;
-	case 2:n = 35; break;
-	case 3:n = 40; break;
-	case 4:n = 45; break;
-	case 5:n = 50; break;
-	case 6:n = 55; break;
-	case 7:n = 60; break;
-	case 8:n = 65; break;
-	case 9:n = 70; break;
-	default:
-		break;
-	}
-	const int idx = index;
-	Mat temp = imread(format("pds/PDSmask_d%02d_%02d.png", n, idx), 0);
-	int x = 2;
-	int y = 2;
-	temp(Rect(x, y, mask.cols, mask.rows)).copyTo(mask);
-	return float(countNonZero(mask)) / mask.size().area();
-}
-
 #pragma region public
 StereoMatch::StereoMatch(int blockSize, int minDisp, int disparityRange) :thread_max(omp_get_max_threads())
 {
@@ -402,26 +376,22 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 	const float mask_size = 1.264f;
 	const float dark_amp = 1.f / 12.f;
 	const int colorSkip = true;
-	vector<Mat> maskRandom(50);
-
 	RNG rng;
-	for (int i = 0; i < 50; i++)
-	{
-		maskRandom[i].create(leftim.size(), CV_8U);
-		randu(maskRandom[i], 0, 256);
-		threshold(maskRandom[i], maskRandom[i], 255 * i * 0.01, 255, THRESH_BINARY_INV);
-	}
 
 #pragma region setup
 	ConsoleImage ci(Size(720, 800));
 	//ci.setFontSize(12);
-	string wname = "";
-	string wname2 = "Disparity Map";
+	string wnameParameter = "parameter";
+	string wnameDisparity = "Disparity Map";
+	string wnameProjection = "LR projection";
+	namedWindow(wnameParameter);
+	namedWindow(wnameDisparity);
+	moveWindow(wnameDisparity, 20, 20);
 
-	namedWindow(wname2);
-	moveWindow(wname2, 200, 200);
-
-	namedWindow("LR");
+	namedWindow(wnameProjection);
+	moveWindow(wnameProjection, 1200, 20);
+	namedWindow("console");
+	moveWindow("console", 1400, 300);
 	//0: proposed precomputed
 	//1: random precomputed
 	//2: PDS precomputed
@@ -429,77 +399,78 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 	//4: proposed 
 	//5: random
 	//6: PDS
-	int patternMethod = 0; createTrackbar("patternMethod", "LR", &patternMethod, 6);
-	int randomSeed = 0; createTrackbar("randomSeed", "LR", &randomSeed, 99);
-	int randomIndex = 2; createTrackbar("randomIdx", "LR", &randomIndex, 49);
-	int display_image_depth_alpha = 0; createTrackbar("disp-image: alpha", wname2, &display_image_depth_alpha, 100);
+	int patternMethod = 0; createTrackbar("patternMethod", wnameProjection, &patternMethod, 6);
+	int randomIndex = 2; createTrackbar("randomIdx", wnameProjection, &randomIndex, 49);
+	int rfactor = 4; createTrackbar("resize factor", wnameProjection, &rfactor, 4);
+	int randomSeed = 0; createTrackbar("randomSeed (not used)", wnameProjection, &randomSeed, 99);
+	bool isFastProjection = true;
+	bool isKeepProjection = false;
+	float ratio = 0.f;
+
+	int display_image_depth_alpha = 0; createTrackbar("disp-image: alpha", wnameDisparity, &display_image_depth_alpha, 100);
 	//pre filter
-	createTrackbar("prefilter: cap", wname, &preFilterCap, 255);
+	createTrackbar("prefilter: cap", wnameParameter, &preFilterCap, 255);
 
 	//pixelMatchingMethod = ADEdge;
 	pixelMatchingMethod = CENSUS13x3;
 	//pixelMatchingMethod = CENSUSTEST;
 
-	createTrackbar("pix match: method", wname, &pixelMatchingMethod, Pixel_Matching_Method_Size - 1);
-	createTrackbar("pix match: color method", wname, &color_distance, ColorDistance_Size - 1);
-	createTrackbar("pix match: blend a", wname, &costAlphaImageSobel, 100);
+	createTrackbar("pix match: method", wnameParameter, &pixelMatchingMethod, Pixel_Matching_Method_Size - 1);
+	//createTrackbar("pix match: color method", wnameParameter, &color_distance, ColorDistance_Size - 1);
+	createTrackbar("pix match: blend a", wnameParameter, &costAlphaImageSobel, 100);
 	pixelMatchErrorCap = preFilterCap;
-	createTrackbar("pix match: err cap", wname, &pixelMatchErrorCap, 255);
+	createTrackbar("pix match: err cap", wnameParameter, &pixelMatchErrorCap, 255);
 
 	//AggregationMethod = Aggregation_Gauss;
 	//aggregationMethod = Guided;
 	aggregationMethod = Box;
-	createTrackbar("agg: method", wname, &aggregationMethod, Aggregation_Method_Size - 1);
-	aggregationRadiusH = 4; createTrackbar("agg: r width", wname, &aggregationRadiusH, 20);
-	aggregationRadiusV = 4; createTrackbar("agg: r height", wname, &aggregationRadiusV, 20);
-	int aggeps = 1; createTrackbar("agg: guide color sigma/eps", wname, &aggeps, 255);
-	int aggss = 100; createTrackbar("agg: guide space sigma", wname, &aggss, 255);
+	createTrackbar("agg: method", wnameParameter, &aggregationMethod, Aggregation_Method_Size - 1);
+	aggregationRadiusH = 4; createTrackbar("agg: r width", wnameParameter, &aggregationRadiusH, 20);
+	aggregationRadiusV = 4; createTrackbar("agg: r height", wnameParameter, &aggregationRadiusV, 20);
+	int aggeps = 1; createTrackbar("agg: guide color sigma/eps", wnameParameter, &aggeps, 255);
+	int aggss = 100; createTrackbar("agg: guide space sigma", wnameParameter, &aggss, 255);
 
 	// disable P1, P2 for optimization(under debug)
 	//createTrackbar("P1", wname, &P1, 20);
 	//createTrackbar("P2", wname, &P2, 20);
 
 	uniquenessRatio = 10;
-	createTrackbar("uniq", wname, &uniquenessRatio, 100);
-	createTrackbar("subpixel RF widow size", wname, &subpixelRangeFilterWindow, 10);
-	createTrackbar("subpixel RF cap", wname, &subpixelRangeFilterCap, 128);
+	createTrackbar("uniq", wnameParameter, &uniquenessRatio, 100);
+	createTrackbar("subpixel RF widow size", wnameParameter, &subpixelRangeFilterWindow, 10);
+	createTrackbar("subpixel RF cap", wnameParameter, &subpixelRangeFilterCap, 128);
 
-	createTrackbar("LR check disp12", wname, &disp12diff, 100);
+	createTrackbar("LR check disp12", wnameParameter, &disp12diff, 100);
 
 	//int spsize = 300;
 	speckleWindowSize = 20;
-	createTrackbar("speckleSize", wname, &speckleWindowSize, 1000);
+	createTrackbar("speckleSize", wnameParameter, &speckleWindowSize, 1000);
 	speckleRange = 16;
-	createTrackbar("speckleDiff", wname, &speckleRange, 100);
+	createTrackbar("speckleDiff", wnameParameter, &speckleRange, 100);
 
-	createTrackbar("occlusionMethod", wname, &holeFillingMethod, 1);
+	createTrackbar("occlusionMethod", wnameParameter, &holeFillingMethod, 1);
 
 	Plot costFunctionPlot(Size(640, 240));
 	Plot signalPlot(Size(640, 240));
 	int vh = 0;
-	int diffmode = 0;
 	if (eval.isInit)
 	{
 		namedWindow("signal");
-		createTrackbar("vh", "signal", &vh, 1);
-		createTrackbar("mode", "signal", &diffmode, 2);
+		createTrackbar("h(0) or v(1) line", "signal", &vh, 1);
 	}
 
 	Point mpt = Point(100, 100);
-	createTrackbar("px", wname, &mpt.x, leftim.cols - 1);
-	createTrackbar("py", wname, &mpt.y, leftim.rows - 1);
+	createTrackbar("px", wnameParameter, &mpt.x, leftim.cols - 1);
+	createTrackbar("py", wnameParameter, &mpt.y, leftim.rows - 1);
 
 	bool isStreak = false;
 	bool isMedian = false;
 
-	int maskType = 1;//0: nomask, 1: nonocc: 2, all: 3, disc, 4: GT
-	int maskPrec = 2;//0: 0.5, 1: 1.0, 2: 2.0
 	bool isPlotCostFunction = true;
 	bool isPlotSignal = true;
 	bool isGrid = true;
 	bool isDispalityColor = false;
 
-	setMouseCallback(wname2, guiStereoMatchingOnMouse, &mpt);
+	setMouseCallback(wnameDisparity, guiStereoMatchingOnMouse, &mpt);
 	//CostVolumeRefinement cbf(minDisparity, numberOfDisparities);
 
 	Mat dispShow;
@@ -508,6 +479,8 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 	//for projection
 	Mat L = leftim.clone();
 	Mat R = rightim.clone();
+	Mat mask(leftim.size(), CV_8U);
+	Mat LR;
 #pragma endregion
 	int key = 0;
 #ifdef GUI_LOOP
@@ -569,60 +542,32 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 		else ci(CV_RGB(255, 0, 0), "Median            (-)| false");
 
 		ci("=======================");
-		if (maskType != 0)
-		{
-			if (maskType == 4)
-				ci(CV_RGB(255, 0, 0), "mask (m-,): ground trueth");
-
-			if (maskPrec == 2 && maskType == 1)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): nonocc, prec: 2.0");
-			if (maskPrec == 1 && maskType == 1)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): nonocc, prec: 1.0");
-			if (maskPrec == 0 && maskType == 1)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): nonocc, prec: 0.5");
-
-			if (maskPrec == 2 && maskType == 2)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): all, prec: 2.0");
-			if (maskPrec == 1 && maskType == 2)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): all, prec: 1.0");
-			if (maskPrec == 0 && maskType == 2)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): all, prec: 0.5");
-
-			if (maskPrec == 2 && maskType == 3)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): disc, prec: 2.0");
-			if (maskPrec == 1 && maskType == 3)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): disc, prec: 1.0");
-			if (maskPrec == 0 && maskType == 3)
-				ci(CV_RGB(0, 255, 0), "mask (m-,): disc, prec: 0.5");
-		}
-		else
-		{
-			ci(CV_RGB(255, 0, 0), "mask (m-,): none");
-		}
-
 #pragma endregion
 
-#pragma region projectPattern
+#pragma region project pattern
+		if (!isKeepProjection || isFastProjection)
 		{
-			Mat mask(leftim.size(), CV_8U);
-			if (patternMethod == 0) mask = imread("maskProp.png", 0);
-			else if (patternMethod == 1)mask = imread("maskRand.png", 0);
-			else if (patternMethod == 2)mask = imread("maskPDS.png", 0);
-			else if (patternMethod == 3)mask.setTo(0);
-			else if (patternMethod == 4|| patternMethod == 6)
+			Mat masktemp(Size(1400, 1120), CV_8U);
+			if (patternMethod == 0) masktemp = imread("maskProp.png", 0);
+			else if (patternMethod == 1)masktemp = imread("maskRand.png", 0);
+			else if (patternMethod == 2)masktemp = imread("maskPDS.png", 0);
+			else if (patternMethod == 3)masktemp.setTo(0);
+			else if (patternMethod == 4 || patternMethod == 6)
 			{
-				loadPrecomputedPDS(mask, randomIndex % 10, randomSeed);
-				if(patternMethod == 4)addRandmizedSatellitePoints(mask, mask, rng);
-				//randmizedSatellitePoints(mask, mask, rng);
+				loadPrecomputedPDS(masktemp, randomIndex % 10, randomSeed);
+				if (patternMethod == 4)addRandmizedSatellitePoints(masktemp, masktemp, rng);
+				//addRandmizedSatellitePoints(masktemp, masktemp, rng);
 			}
 			else if (patternMethod == 5)
 			{
-				mask = maskRandom[randomIndex].clone();
-				//randu(mask, 0, 256);
-				//threshold(mask, mask, 255 * randomIndex * 0.01, 255, THRESH_BINARY_INV);
+				randu(masktemp, 0, 256);
+				threshold(masktemp, masktemp, 255 * randomIndex * 0.01, 255, THRESH_BINARY_INV);
+				imwrite("mask.png", masktemp);
 			}
 
-			const float ratio = float(countNonZero(mask)) / leftim.size().area();
+			int offset = 4;
+			masktemp(Rect(offset, offset, leftim.cols, leftim.rows)).copyTo(mask);
+			ratio = float(countNonZero(mask)) / leftim.size().area();
 
 			//Timer tt("projection");
 			//leftim.copyTo(L); rightim.copyTo(R);// noprojection
@@ -634,7 +579,7 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			//imwrite("R.png", temp);
 			//guiCropZoom(temp);
 
-			Mat LR; hconcat(L, R, LR);
+			hconcat(L, R, LR);
 			string mes = "";
 			switch (patternMethod)
 			{
@@ -645,13 +590,35 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			case 4: mes = "proposed "; break;
 			case 5: mes = "random"; break;
 			case 6: mes = "PDS"; break;
-			default:
-				break;
+			default: break;
 			}
-			//format("ratio %6.2f", ratio * 100.0)
 			cv::addText(LR, mes, Point(30, 60), "Arial", 60, COLOR_WHITE);
 			cv::addText(LR, format("ratio %6.2f", ratio * 100.0), Point(30, 150), "Arial", 60, COLOR_WHITE);
-			imshowResize("LR", LR, Size(), 0.25, 0.25);
+			if (isKeepProjection)cv::addText(LR, "keep projection true (r)", Point(30, 240), "Arial", 60, COLOR_WHITE);
+			else cv::addText(LR, "keep projection false (r)", Point(30, 240), "Arial", 60, COLOR_WHITE);
+			imshowResize(wnameProjection, LR, Size(), 1.0 / max(rfactor, 1), 1.0 / max(rfactor, 1));
+
+			isFastProjection = false;
+		}
+		else
+		{
+			hconcat(L, R, LR);
+			string mes = "";
+			switch (patternMethod)
+			{
+			case 0: mes = "proposed precomputed"; break;
+			case 1: mes = "random precomputed"; break;
+			case 2: mes = "PDS precomputed"; break;
+			case 3: mes = "no mask"; break;
+			case 4: mes = "proposed "; break;
+			case 5: mes = "random"; break;
+			case 6: mes = "PDS"; break;
+			default: break;
+			}
+			cv::addText(LR, mes, Point(30, 60), "Arial", 60, COLOR_WHITE);
+			cv::addText(LR, format("ratio %6.2f", ratio * 100.0), Point(30, 150), "Arial", 60, COLOR_WHITE);
+			cv::addText(LR, "keep projection true (r)", Point(30, 240), "Arial", 60, COLOR_WHITE);
+			imshowResize(wnameProjection, LR, Size(), 1.0 / max(rfactor, 1), 1.0 / max(rfactor, 1));
 		}
 #pragma endregion
 
@@ -680,7 +647,6 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 				medianBlur(destDisparity, destDisparity, 3);
 			}
 			ci("Time A-PostFilter| %6.2f ms", t.getTime());//additional post processing time
-
 		}
 #pragma endregion 
 
@@ -730,7 +696,6 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			}
 
 			costFunctionPlot.plot("cost function", false);
-
 		}
 
 		//plot signal
@@ -754,17 +719,6 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 					double ddd = (eval.ground_truth.at<uchar>(mpt.y, i) / eval.amp);
 					double ddd2 = ((double)destDisparity.at<short>(mpt.y, i) / (16.0));
 
-					if (diffmode == 1)
-					{
-						ddd = abs(ddd - (eval.ground_truth.at<uchar>(mpt.y, i - 1) / eval.amp));
-						ddd2 = abs(ddd2 - (((double)destDisparity.at<short>(mpt.y, i - 1) / (16.0))));
-					}
-					if (diffmode == 2)
-					{
-						ddd = abs((ddd - (eval.ground_truth.at<uchar>(mpt.y, i - 1) / eval.amp)) - (ddd - (eval.ground_truth.at<uchar>(mpt.y, i + 1) / eval.amp)));
-						ddd2 = abs((ddd2 - ((double)destDisparity.at<short>(mpt.y, i - 1) / (16.0))) - (ddd2 - ((double)destDisparity.at<short>(mpt.y, i + 1) / (16.0))));
-					}
-
 					signalPlot.push_back(i, ddd2, 0);
 					signalPlot.push_back(i, ddd, 1);
 				}
@@ -779,17 +733,6 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 				{
 					double ddd = (eval.ground_truth.at<uchar>(i, mpt.x) / eval.amp);
 					double ddd2 = ((double)destDisparity.at<short>(i, mpt.x) / (16.0));
-
-					if (diffmode == 1)
-					{
-						ddd = abs(ddd - (eval.ground_truth.at<uchar>(i - 1, mpt.x) / eval.amp));
-						ddd2 = abs(ddd2 - (((double)destDisparity.at<short>(i - 1, mpt.x) / (16.0))));
-					}
-					if (diffmode == 2)
-					{
-						ddd = abs(-(ddd - (eval.ground_truth.at<uchar>(i - 1, mpt.x) / eval.amp)) + (-ddd + (eval.ground_truth.at<uchar>(i + 1, mpt.x) / eval.amp)));
-						ddd2 = abs(-(ddd2 - ((double)destDisparity.at<short>(i - 1, mpt.x) / (16.0))) + (-ddd2 + ((double)destDisparity.at<short>(i + 1, mpt.x) / (16.0))));
-					}
 
 					signalPlot.push_back(i, ddd2, 0);
 					signalPlot.push_back(i, ddd, 1);
@@ -816,28 +759,6 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			//ci("MSE|" + eval.getMSE(destDisparity, 16, isPrintEval));
 			csv.write(eval.nonocc);
 			//csv.write(eval.nonoccMSE);
-			if (maskType != 0)
-			{
-				if (maskPrec == 0)eval(destDisparity, 0.5, 16, isPrintEval);
-				if (maskPrec == 1)eval(destDisparity, 1.0, 16, isPrintEval);
-				if (maskPrec == 2)eval(destDisparity, 2.0, 16, isPrintEval);
-
-				if (maskType == 1)
-					eval.nonocc_th.copyTo(maskbadpixel);
-				else if (maskType == 2)
-					eval.all_th.copyTo(maskbadpixel);
-				else if (maskType == 3)
-					eval.disc_th.copyTo(maskbadpixel);
-			}
-			if (maskType == 4)
-			{
-				if (isDispalityColor) { Mat a; eval.ground_truth.convertTo(a, CV_16S, 4); cvtDisparityColor(a, dispShow, minDisparity, numberOfDisparities - 10, DISPARITY_COLOR::COLOR_PSEUDO, 16); }
-				else eval.ground_truth.copyTo(dispShow);
-			}
-			else
-			{
-				dispShow.setTo(Scalar(0, 0, 255), maskbadpixel);
-			}
 		}
 
 		// show disparity
@@ -858,16 +779,15 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			line(dispShow, Point(mpt.x, 0), Point(mpt.x, leftim.rows), CV_RGB(0, 255, 0));
 		}
 
-		imshow(wname2, dispShow);
+		imshow(wnameDisparity, dispShow);
 
 		ci("Other keys");
-		ci("grid (g), dispcolor(w),");
+		ci("quit (q), grid (g), dispcolor(w),");
 		ci("check alpha(c), point cloud (p)");
 
-		moveWindow("console", 1500, 300);
 		ci.show();
-		setTrackbarPos("px", wname, mpt.x);
-		setTrackbarPos("py", wname, mpt.y);
+		setTrackbarPos("px", wnameParameter, mpt.x);
+		setTrackbarPos("py", wnameParameter, mpt.y);
 #pragma endregion 
 
 #pragma region key input
@@ -894,6 +814,7 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			{
 				pixelMatchingMethod++; pixelMatchingMethod = (pixelMatchingMethod > Pixel_Matching_Method_Size - 1) ? 0 : pixelMatchingMethod;
 			}
+			setTrackbarPos("pix match: method", wnameParameter, pixelMatchingMethod);
 		}
 		if (key == 'u')
 		{
@@ -905,19 +826,17 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			{
 				pixelMatchingMethod--; pixelMatchingMethod = (pixelMatchingMethod < 0) ? Pixel_Matching_Method_Size - 2 : pixelMatchingMethod;
 			}
+			setTrackbarPos("pix match: method", wnameParameter, pixelMatchingMethod);
 		}
 
-		if (key == 'j') { color_distance++; color_distance = (color_distance > ColorDistance_Size - 1) ? 0 : color_distance; }
-		if (key == 'k') { color_distance--; color_distance = (color_distance < 0) ? ColorDistance_Size - 2 : color_distance; }
+		//if (key == 'j') { color_distance++; color_distance = (color_distance > ColorDistance_Size - 1) ? 0 : color_distance; }
+		//if (key == 'k') { color_distance--; color_distance = (color_distance < 0) ? ColorDistance_Size - 2 : color_distance; }
 
 		if (key == '@') { aggregationMethod++; aggregationMethod = (aggregationMethod > Aggregation_Method_Size - 1) ? 0 : aggregationMethod; }
 		if (key == '[') { aggregationMethod--; aggregationMethod = (aggregationMethod < 0) ? Aggregation_Method_Size - 2 : aggregationMethod; }
 
-		if (key == 'm')maskType++; maskType = maskType > 4 ? 0 : maskType;
-		if (key == ',')maskPrec++; maskPrec = maskPrec > 2 ? 0 : maskPrec;
-
 		if (key == 'g') isGrid = (isGrid) ? false : true;
-		if (key == 'w')isDispalityColor = (isDispalityColor) ? false : true;
+		if (key == 'w') isDispalityColor = (isDispalityColor) ? false : true;
 		if (key == 'c') guiAlphaBlend(dispShow, leftim);
 		if (key == 'p')
 		{
@@ -927,8 +846,9 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 			add(destDisparity, offset_pointcloud * 16, destDisparity);
 			pcs.loop(leftim, destDisparity, 16.f, 3740.f, 160.f * 0.1, 0);
 		}
+		if (key == 'r') isKeepProjection = isKeepProjection ? false : true;
 #pragma endregion
-}
+	}
 }
 
 void StereoMatch::showWeightMap(std::string wname)
@@ -1020,7 +940,7 @@ static void prefilterXSobel(Mat & src, Mat & dst, const int preFilterCap)
 		srow1 += step;
 		dptr0 += step;
 		dptr1 += step;
-		}
+	}
 	srow1 -= src.cols;
 
 	for (int y = HEIGHT; y < size.height; y++)
@@ -1034,7 +954,7 @@ static void prefilterXSobel(Mat & src, Mat & dst, const int preFilterCap)
 		}
 		dptr[e] = saturate_cast<uchar>(min(preFilterCap2, 2 * (srow0[e - 1] - srow0[e]) + WCS * (srow1[e - 1] - srow1[e]) + preFilterCap));
 	}
-	}
+}
 
 static void prefilterGuided(Mat & src, Mat & dst, const int preFilterCap)
 {
@@ -2728,12 +2648,12 @@ void StereoMatch::computetextureAlpha(Mat & src, Mat & dest, const int th1, cons
 	//imshow("texture", dest);
 }
 
-void StereoMatch::computePixelMatchingCostADAlpha(vector<Mat> &t, vector<Mat> &r, Mat & alpha, const int d, Mat & dest)
+void StereoMatch::computePixelMatchingCostADAlpha(vector<Mat> & t, vector<Mat> & r, Mat & alpha, const int d, Mat & dest)
 {
 	;
 }
 
-void StereoMatch::computePixelMatchingCostBTAlpha(vector<Mat> &target, vector<Mat> &refference, Mat & alpha, const int d, Mat & dest)
+void StereoMatch::computePixelMatchingCostBTAlpha(vector<Mat> & target, vector<Mat> & refference, Mat & alpha, const int d, Mat & dest)
 {
 	;
 }
@@ -2900,7 +2820,7 @@ void StereoMatch::computeOptimizeScanline()
 	//delete[] vd;
 }
 
-void StereoMatch::computeWTA(vector<Mat> &dsi, Mat & dest, Mat & minimumCostMap)
+void StereoMatch::computeWTA(vector<Mat> & dsi, Mat & dest, Mat & minimumCostMap)
 {
 	const int imsize = dest.size().area();
 	const int simdsize = get_simd_floor(imsize, 32);
@@ -2974,7 +2894,7 @@ void StereoMatch::computeWTA(vector<Mat> &dsi, Mat & dest, Mat & minimumCostMap)
 		disparityMapPtr[i] = mind;
 	}
 #endif
-	}
+}
 #pragma endregion
 
 #pragma region post filter
@@ -3032,8 +2952,8 @@ void StereoMatch::uniquenessFilter(Mat & minCostMap, Mat & dest)
 			}
 		}
 #endif
-		}
 	}
+}
 
 
 string StereoMatch::getSubpixelInterpolationMethodName(const SUBPIXEL method)
