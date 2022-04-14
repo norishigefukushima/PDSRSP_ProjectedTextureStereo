@@ -12,10 +12,23 @@ J. Takeda and N. Fukushima, "Poisson Disk Sampling with Randomized Satellite Poi
 * [code](https://github.com/norishigefukushima/PDSRSP_ProjectedTextureStereo) 
 
 # Citation
-
+J. Takeda and N. Fukushima, "Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo," Optics Continuum, vol.1, no.4, 2022.
 
 BibTeX
-```
+```bibtex
+@article{takeda2022poisson,
+author = {Jun Takeda and Norishige Fukushima},
+title = {Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo},
+journal = {Opt. Continuum},
+publisher = {OSA},
+number = {4},
+volume = {1},
+pages = {834--845},
+month = {Apr},
+year = {2022},
+url = {},
+doi = {},
+}
 ```
 # Compile
 The codes are written in C++.
