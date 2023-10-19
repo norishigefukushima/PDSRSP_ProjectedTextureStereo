@@ -392,6 +392,7 @@ void StereoMatch::gui(Mat& leftim, Mat& rightim, Mat& destDisparity, StereoEval&
 	moveWindow(wnameProjection, 1200, 20);
 	namedWindow("console");
 	moveWindow("console", 1400, 300);
+
 	//0: proposed precomputed
 	//1: random precomputed
 	//2: PDS precomputed
