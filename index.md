@@ -1,22 +1,32 @@
 # Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo
 Project page of the paper "Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo".
-
+<BR>
 
 ![top](top.png)
 
-
 # Paper
-J. Takeda and N. Fukushima, "Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo," Optics Continuum, 2022.
-
-* [pdf]()
+* [web](http://opg.optica.org/optcon/abstract.cfm?URI=optcon-1-5-974)   
 * [code](https://github.com/norishigefukushima/PDSRSP_ProjectedTextureStereo) 
-
+   
 # Citation
-
+J. Takeda and N. Fukushima, "Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo," Optics Continuum, vol.1, no.5, pp.974-988, May 2022.
 
 BibTeX
 ```
+@article{takeda2022poisson,
+author = {Jun Takeda and Norishige Fukushima},
+title = {Poisson Disk Sampling with Randomized Satellite Points for Projected Texture Stereo},
+journal = {Opt. Continuum},
+volume = {1},
+number = {5},
+pages = {974--988},
+month = {May},
+year = {2022},
+publisher = {OSA},
+doi = {10.1364/OPTCON.451197},
+}
 ```
+
 # Compile
 The codes are written in C++.
 The library is only tested in Windows with Visual Studio.
@@ -114,4 +124,3 @@ The matching method of the skipped census transform and the projection method of
 * [Middlebury dataset 2005](https://vision.middlebury.edu/stereo/data/scenes2005/)
 * [Middlebury dataset 2006](https://vision.middlebury.edu/stereo/data/scenes2006/)
 * [OpenCP](https://github.com/norishigefukushima/OpenCP)
-
